@@ -11,7 +11,7 @@ esphome:
   min_version: 2026.2.4
   project:
     name: "tinwer.mahtanarm"
-    version: "1.4"
+    version: "1.4-mhk-f-correction"
 
 esp32:
   board: esp32-c3-devkitc-02
@@ -19,7 +19,10 @@ esp32:
     type: esp-idf
 
 external_components:
-  - source: github://muart-group/esphome-components@main
+  # Pinned to the squash-merge of PR #44 on muart-group/esphome-components@dev
+  # (Add optional MHK Fahrenheit correction mode). Bump to a newer dev SHA, or
+  # to @main, once dev rolls forward.
+  - source: github://muart-group/esphome-components@704211abe2f103cc07fac2e6f362a15ea614bf74
     components: [mitsubishi_itp]
 
 logger:
@@ -72,6 +75,7 @@ climate:
     uart_heatpump: hp_uart
     uart_thermostat: tstat_uart
     update_interval: 6s
+    mhk_fahrenheit_correction: true
 
 binary_sensor:
   - platform: mitsubishi_itp
