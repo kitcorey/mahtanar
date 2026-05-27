@@ -1,13 +1,14 @@
+---
 substitutions:
-  name: "mitp-heat-pump"
-  friendly_name: "mITP Heat Pump"
+  reboot_timeout: 1d
+  name: 'heatpump'
+  friendly_name: 'Heat Pump'
+  static_ip: '192.168.20.83'
 
 esphome:
-  name: "${name}"
-  friendly_name: "${friendly_name}"
-  name_add_mac_suffix: true
+  name: ${name}
+  friendly_name: ${friendly_name}
   min_version: 2026.2.4
-
   project:
     name: "tinwer.mahtanarm"
     version: "1.4"
@@ -17,27 +18,26 @@ esp32:
   framework:
     type: esp-idf
 
-# Load the mitsubishi_itp component from the repo
 external_components:
   - source: github://muart-group/esphome-components@main
-    components: [ mitsubishi_itp ]
-
-# This should point to the public location of this yaml file.
-dashboard_import:
-  package_import_url: github://tinwer-group/mahtanar/esphome-configs/mahtanar-ethernet-default.yaml@1.4-release
-  import_full_config: true
+    components: [mitsubishi_itp]
 
 logger:
   baud_rate: 115200
 
-# Enable Home Assistant / ESPHome API
 api:
+  encryption:
+    key: !secret api_encryption_key
+  reboot_timeout: ${reboot_timeout}
 
-# Enable ota updates (no password here, but one should be generated during adoption)
 ota:
-  platform: esphome
+  - platform: esphome
+    password: !secret ota_password
 
-# Enable Ethernet (no WiFi can be configured with Ethernet)
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+
 ethernet:
   type: W5500
   mosi_pin: GPIO06
@@ -47,99 +47,72 @@ ethernet:
   reset_pin: GPIO05
   interrupt_pin: GPIO03
   clock_speed: 40MHz
+  manual_ip:
+    static_ip: ${static_ip}
+    gateway: '192.168.20.1'
+    subnet: '255.255.255.0'
+    dns1: '192.168.1.70'
+    dns2: '192.168.1.80'
 
-# Define UARTs connected to heat pump and thermostat
 uart:
   - id: hp_uart
-    baud_rate: 2400 # For some equipment this may need to be 9600
+    baud_rate: 2400
     parity: EVEN
-    rx_pin:
-      number: GPIO1
-    tx_pin:
-      number: GPIO0
+    rx_pin: { number: GPIO1 }
+    tx_pin: { number: GPIO0 }
   - id: tstat_uart
-    baud_rate: 2400 # For some equipment this may need to be 9600
+    baud_rate: 2400
     parity: EVEN
-    rx_pin:
-      number: GPIO20
-    tx_pin:
-      number: GPIO21
+    rx_pin: { number: GPIO20 }
+    tx_pin: { number: GPIO21 }
 
-# Define mitsubishi_itp climate component
 climate:
   - platform: mitsubishi_itp
     name: "Climate"
     uart_heatpump: hp_uart
-    uart_thermostat: tstat_uart # This and the uart component below can be removed if no thermostat connected
-    update_interval: 6s # This should be a relatively safe default, but can be adjusted if desired
-
-# This default configuration includes all the common sensors, but these can each be commented out if your 
-# equipment doesn't support them or they are not needed.
+    uart_thermostat: tstat_uart
+    update_interval: 6s
 
 binary_sensor:
   - platform: mitsubishi_itp
-    defrost:
-      # Reports if system is in defrost
-      name: "Defrost"
-    filter_status:
-      # Reports if filter needs to be replaced (false = OK)
-      name: "Filter Status"
-    isee_status:
-      # Reports if i-see is enabled
-      name: "i-see Status"
-    preheat:
-      # Reports if system is preheating
-      name: "Preheat"
-    standby:
-      # Reports if system is in standby
-      name: "Standby"
-    using_internal_temperature:
-      # Reports if system is using internal temperature sensor
-      name: "Internal Sensor"
+    defrost: { name: "Defrost" }
+    filter_status: { name: "Filter Status" }
+    isee_status: { name: "i-see Status" }
+    preheat: { name: "Preheat" }
+    standby: { name: "Standby" }
+    using_internal_temperature: { name: "Internal Sensor" }
 
 sensor:
   - platform: mitsubishi_itp
-    compressor_frequency:
-      # Frequency in Hz of compressor (only some equipment)
-      name: "Compressor Frequency"
-    outdoor_temperature:
-      # Outdoor temperature as reported by equipment
-      name: "Outdoor Temperature"
-
-    # Only available if a thermostat is connected
-    thermostat_temperature:
-      # Temperature reported by thermostat
-      name: "Thermostat Temperature"
+    compressor_frequency: { name: "Compressor Frequency" }
+    outdoor_temperature: { name: "Outdoor Temperature" }
+    thermostat_temperature: { name: "Thermostat Temperature" }
+  - platform: uptime
+    name: "Uptime"
+  - platform: internal_temperature
+    name: "Internal Temperature"
+    accuracy_decimals: 2
+    update_interval: 30s
 
 text_sensor:
   - platform: mitsubishi_itp
-    actual_fan:
-      # Actual current fan speed (vs. set speed)
-      name: "Actual Fan"
-    error_code:
-      # Reports diagnostic error code
-      name: "Error Code"
+    actual_fan: { name: "Actual Fan" }
+    error_code: { name: "Error Code" }
 
 button:
   - platform: mitsubishi_itp
-    filter_reset_button:
-      # Resets the change-filter warning when pressed
-      name: "Filter Reset"
+    filter_reset_button: { name: "Filter Reset" }
+  - platform: restart
+    name: "Restart"
 
 select:
   - platform: mitsubishi_itp
-    vane_position:
-      # Contols vertical vanes on supported units
-      name: "Vane Position"
-    horizontal_vane_position:
-      # Contols horizontal vanes on supported units
-      name: "H. Vane Position"
+    vane_position: { name: "Vane Position" }
+    horizontal_vane_position: { name: "H. Vane Position" }
     temperature_source:
-      # A list of additional temperature source sensors.  Included in this default
-      # config so that Thermostat can be selected if configured.
       name: "Temperature Source"
       sources: []
-      
+
 light:
   - platform: status_led
     name: "Status LED"
